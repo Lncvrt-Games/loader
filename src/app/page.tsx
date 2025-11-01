@@ -1,0 +1,127 @@
+'use client'
+
+import Image from 'next/image'
+import Icon from './assets/Icon.png'
+import { useEffect, useState } from 'react'
+import axios from 'axios'
+import { app } from '@tauri-apps/api'
+import { invoke } from '@tauri-apps/api/core'
+import { arch, platform } from '@tauri-apps/plugin-os'
+import { LauncherUpdate } from './types/LauncherUpdate'
+import { openUrl } from '@tauri-apps/plugin-opener'
+
+export default function Home () {
+  const [state, setState] = useState<string>('Loading...')
+
+  useEffect(() => {
+    ;(async () => {
+      setState('Checking for updates...')
+
+      let updaterLatestRequest
+      let launcherLatestRequest
+      let launcherUpdateData: LauncherUpdate | null
+
+      try {
+        updaterLatestRequest = await axios.get(
+          'https://games.lncvrt.xyz/api/launcher/loader/latest'
+        )
+        launcherLatestRequest = await axios.get(
+          'https://games.lncvrt.xyz/api/launcher/latest'
+        )
+      } catch {
+        setState('Failed. Check internet connection.')
+        return
+      }
+
+      if (
+        updaterLatestRequest.status !== 200 ||
+        launcherLatestRequest.status !== 200
+      ) {
+        setState('Failed. Try again later.')
+        return
+      }
+
+      const version = await app.getVersion()
+      if (version !== updaterLatestRequest.data) {
+        setState('Loader update required')
+        return
+      }
+
+      const isLatest = await invoke('check_latest_ver', {
+        version: launcherLatestRequest.data
+      })
+      if (isLatest == '1') {
+        setState('Starting...')
+      } else {
+        setState('Downloading new update...')
+        try {
+          const launcherUpdateRequest = await axios.get(
+            'https://games.lncvrt.xyz/api/launcher/loader/update-data'
+          )
+          launcherUpdateData = launcherUpdateRequest.data
+        } catch {
+          setState('Failed. Check internet connection.')
+          return
+        }
+        if (!launcherUpdateData) return
+        const downloadResult = await invoke('download', {
+          url: getDownloadLink(launcherUpdateData),
+          name: launcherLatestRequest.data
+        })
+        if (downloadResult !== '1') {
+          setState('Failed. Check internet connection.')
+          return
+        }
+        setState('Starting...')
+      }
+
+      invoke('load', {
+        name: launcherLatestRequest.data
+      })
+    })()
+  }, [])
+
+  function getDownloadLink (version: LauncherUpdate): string | undefined {
+    const p = platform()
+    const a = arch()
+
+    const findUrl = (plat: string) => {
+      const i = version.platforms.indexOf(plat)
+      return i >= 0 ? version.downloadUrls[i] : undefined
+    }
+
+    if (p === 'windows') {
+      if (a === 'x86_64') return findUrl('windows-x64')
+      if (a === 'aarch64') return findUrl('windows-arm64')
+    } else if (p === 'macos') {
+      if (a === 'x86_64') return findUrl('macos-intel')
+      if (a === 'aarch64') return findUrl('macos-silicon')
+    } else if (p === 'linux') return findUrl(p)
+
+    return undefined
+  }
+
+  return (
+    <>
+      <div className='absolute left-1/2 top-[20%] -translate-x-1/2 flex flex-col items-center'>
+        <Image src={Icon} width={128} height={128} alt='' draggable={false} />
+        <div
+          className={`${
+            state !== 'Loader update required' ? 'mt-10' : 'mt-4'
+          } text-center`}
+        >
+          <p className='whitespace-nowrap'>{state}</p>
+          <button
+            hidden={state !== 'Loader update required'}
+            className='mt-4'
+            onClick={async () =>
+              await openUrl('https://games.lncvrt.xyz/download')
+            }
+          >
+            Update
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}

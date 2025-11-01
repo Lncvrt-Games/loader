@@ -1,0 +1,25 @@
+[package]
+name = "lncvrt-games-launcher-loader"
+version = "0.1.0"
+authors = ["Lncvrt"]
+edition = "2024"
+
+[lib]
+name = "lncvrt_games_launcher_loader_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.1", features = [] }
+
+[dependencies]
+tauri = { version = "2.9.2", features = [] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+tauri-plugin-fs = "2"
+tokio = "1.48.0"
+zip = "6.0.0"
+tauri-plugin-os = "2"
+reqwest = { version = "0.12.24", default-features = false, features = ["stream", "rustls-tls"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-[rgb(24,24,24)] text-white select-none;
+}
+
+button {
+  @apply bg-[rgb(48,48,48)] hover:bg-[rgb(56,56,56)] border border-[rgb(72,72,72)] hover:border-[rgb(80,80,80)] transition-colors px-2 py-1 rounded-md cursor-pointer;
+}
