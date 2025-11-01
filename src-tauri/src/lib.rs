@@ -8,6 +8,9 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_os::platform;
 use zip::ZipArchive;
 
+#[cfg(target_os = "linux")]
+use std::{fs, os::unix::fs::PermissionsExt};
+
 async fn unzip_to_dir(zip_path: PathBuf, out_dir: PathBuf) -> String {
     let res = tauri::async_runtime::spawn_blocking(move || {
         let file = File::open(zip_path)?;
