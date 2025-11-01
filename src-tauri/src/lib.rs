@@ -150,7 +150,7 @@ fn load(app: AppHandle, name: String) {
             .spawn()
             .unwrap();
     } else if platform() == "windows" {
-        Command::new("lncvrt-games-launcher.exe")
+        Command::new(&update_path.join("lncvrt-games-launcher.exe"))
             .current_dir(&update_path)
             .spawn()
             .unwrap();
