@@ -13,6 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "title": "Lncvrt Games Launcher",
         "width": 300,
         "height": 300,
         "resizable": false,
