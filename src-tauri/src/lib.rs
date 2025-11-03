@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::{
     fs::{File, create_dir_all},
     io::{BufReader, copy},
@@ -41,6 +42,13 @@ async fn unzip_to_dir(zip_path: PathBuf, out_dir: PathBuf) -> String {
     }
 }
 
+fn get_sha256_hash(data: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let hash = hasher.finalize();
+    format!("{:x}", hash)
+}
+
 #[tauri::command]
 async fn check_latest_ver(app: AppHandle, version: String) -> String {
     let updates_path = app.path().app_local_data_dir().unwrap().join("updates");
@@ -55,7 +63,7 @@ async fn check_latest_ver(app: AppHandle, version: String) -> String {
 }
 
 #[tauri::command]
-async fn download(app: AppHandle, url: String, name: String) -> String {
+async fn download(app: AppHandle, url: String, name: String, hash: String) -> String {
     let client = reqwest::Client::new();
     let resp = match client.get(&url).send().await {
         Ok(r) => r,
@@ -65,6 +73,11 @@ async fn download(app: AppHandle, url: String, name: String) -> String {
         Ok(b) => b,
         Err(_) => return "-1".to_string(),
     };
+
+    let download_hash = get_sha256_hash(&bytes);
+    if hash != download_hash {
+        return "-2".to_string();
+    }
 
     let downloads_path = app.path().app_local_data_dir().unwrap().join("downloads");
     let updates_path = app.path().app_local_data_dir().unwrap().join("updates");

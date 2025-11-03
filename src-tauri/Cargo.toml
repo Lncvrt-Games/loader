@@ -22,6 +22,7 @@ tauri-plugin-os = "2.3.2"
 reqwest = { version = "0.12.24", default-features = false, features = ["stream", "rustls-tls"] }
 tauri-plugin-opener = "2.5.2"
 tauri-plugin-dialog = "2.4.2"
+sha2 = "0.10.9"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2.3.6"

@@ -66,10 +66,14 @@ export default function Home () {
         if (!launcherUpdateData) return
         const downloadResult = await invoke('download', {
           url: getDownloadLink(launcherUpdateData),
-          name: launcherLatestRequest.data
+          name: launcherLatestRequest.data,
+          hash: getDownloadHash(launcherUpdateData)
         })
-        if (downloadResult !== '1') {
+        if (downloadResult == '-1') {
           setState('Failed. Check internet connection.')
+          return
+        } else if (downloadResult == '-2') {
+          setState('File integrity check failed.')
           return
         }
         setState('Starting...')
@@ -88,6 +92,26 @@ export default function Home () {
     const findUrl = (plat: string) => {
       const i = version.platforms.indexOf(plat)
       return i >= 0 ? version.downloadUrls[i] : undefined
+    }
+
+    if (p === 'windows') {
+      if (a === 'x86_64') return findUrl('windows-x64')
+      if (a === 'aarch64') return findUrl('windows-arm64')
+    } else if (p === 'macos') {
+      if (a === 'x86_64') return findUrl('macos-intel')
+      if (a === 'aarch64') return findUrl('macos-silicon')
+    } else if (p === 'linux') return findUrl(p)
+
+    return undefined
+  }
+
+  function getDownloadHash (version: LauncherUpdate): string | undefined {
+    const p = platform()
+    const a = arch()
+
+    const findUrl = (plat: string) => {
+      const i = version.platforms.indexOf(plat)
+      return i >= 0 ? version.sha256sums[i] : undefined
     }
 
     if (p === 'windows') {

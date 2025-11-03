@@ -3,5 +3,5 @@ export interface LauncherUpdate {
     releaseDate: number
     downloadUrls: string[]
     platforms: string[]
-    executables: string[]
+    sha256sums: string[]
 }
