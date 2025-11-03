@@ -76,7 +76,14 @@ async fn download(app: AppHandle, url: String, name: String) -> String {
     if let Ok(true) = tokio::fs::try_exists(&updates_path.join(name.clone())).await {
         let _ = tokio::fs::remove_dir_all(&updates_path.join(name.clone())).await;
     }
-    let _ = tokio::fs::create_dir_all(&updates_path.join(&name)).await;
+    if updates_path.exists() {
+        if let Ok(mut entries) = tokio::fs::read_dir(&updates_path).await {
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let _ = tokio::fs::remove_dir_all(entry.path()).await;
+            }
+        }
+        let _ = tokio::fs::create_dir_all(updates_path.join(&name)).await;
+    }
     if download_part_path.exists() {
         let _ = tokio::fs::remove_file(&download_part_path).await;
     }
