@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { app } from '@tauri-apps/api'
 import { invoke } from '@tauri-apps/api/core'
-import { arch, platform } from '@tauri-apps/plugin-os'
 import { LauncherUpdate } from './types/LauncherUpdate'
 import { openUrl } from '@tauri-apps/plugin-opener'
 
@@ -65,9 +64,9 @@ export default function Home () {
         }
         if (!launcherUpdateData) return
         const downloadResult = await invoke('download', {
-          url: getDownloadLink(launcherUpdateData),
+          url: launcherUpdateData.downloadUrl,
           name: launcherLatestRequest.data,
-          hash: getDownloadHash(launcherUpdateData)
+          hash: launcherUpdateData.sha512sum
         })
         if (downloadResult == '-1') {
           setState('Failed. Check internet connection.')
@@ -84,46 +83,6 @@ export default function Home () {
       })
     })()
   }, [])
-
-  function getDownloadLink (version: LauncherUpdate): string | undefined {
-    const p = platform()
-    const a = arch()
-
-    const findUrl = (plat: string) => {
-      const i = version.platforms.indexOf(plat)
-      return i >= 0 ? version.downloadUrls[i] : undefined
-    }
-
-    if (p === 'windows') {
-      if (a === 'x86_64') return findUrl('windows-x64')
-      if (a === 'aarch64') return findUrl('windows-arm64')
-    } else if (p === 'macos') {
-      if (a === 'x86_64') return findUrl('macos-intel')
-      if (a === 'aarch64') return findUrl('macos-silicon')
-    } else if (p === 'linux') return findUrl(p)
-
-    return undefined
-  }
-
-  function getDownloadHash (version: LauncherUpdate): string | undefined {
-    const p = platform()
-    const a = arch()
-
-    const findUrl = (plat: string) => {
-      const i = version.platforms.indexOf(plat)
-      return i >= 0 ? version.sha512sums[i] : undefined
-    }
-
-    if (p === 'windows') {
-      if (a === 'x86_64') return findUrl('windows-x64')
-      if (a === 'aarch64') return findUrl('windows-arm64')
-    } else if (p === 'macos') {
-      if (a === 'x86_64') return findUrl('macos-intel')
-      if (a === 'aarch64') return findUrl('macos-silicon')
-    } else if (p === 'linux') return findUrl(p)
-
-    return undefined
-  }
 
   return (
     <>
