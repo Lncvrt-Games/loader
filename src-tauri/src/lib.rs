@@ -1,4 +1,4 @@
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha512};
 use std::{
     fs::{File, create_dir_all},
     io::{BufReader, copy},
@@ -42,8 +42,8 @@ async fn unzip_to_dir(zip_path: PathBuf, out_dir: PathBuf) -> String {
     }
 }
 
-fn get_sha256_hash(data: &[u8]) -> String {
-    let mut hasher = Sha256::new();
+fn get_sha512_hash(data: &[u8]) -> String {
+    let mut hasher = Sha512::new();
     hasher.update(data);
     let hash = hasher.finalize();
     format!("{:x}", hash)
@@ -74,7 +74,7 @@ async fn download(app: AppHandle, url: String, name: String, hash: String) -> St
         Err(_) => return "-1".to_string(),
     };
 
-    let download_hash = get_sha256_hash(&bytes);
+    let download_hash = get_sha512_hash(&bytes);
     if hash != download_hash {
         return "-2".to_string();
     }

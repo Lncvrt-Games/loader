@@ -111,7 +111,7 @@ export default function Home () {
 
     const findUrl = (plat: string) => {
       const i = version.platforms.indexOf(plat)
-      return i >= 0 ? version.sha256sums[i] : undefined
+      return i >= 0 ? version.sha512sums[i] : undefined
     }
 
     if (p === 'windows') {
