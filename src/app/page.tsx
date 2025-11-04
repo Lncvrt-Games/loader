@@ -8,6 +8,7 @@ import { app } from '@tauri-apps/api'
 import { invoke } from '@tauri-apps/api/core'
 import { LauncherUpdate } from './types/LauncherUpdate'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { arch, platform } from '@tauri-apps/plugin-os'
 
 export default function Home () {
   const [state, setState] = useState<string>('Loading...')
@@ -55,7 +56,7 @@ export default function Home () {
         setState('Downloading new update...')
         try {
           const launcherUpdateRequest = await axios.get(
-            'https://games.lncvrt.xyz/api/launcher/loader/update-data'
+            `https://games.lncvrt.xyz/api/launcher/loader/update-data?platform=${platform()}&arch=${arch()}`
           )
           launcherUpdateData = launcherUpdateRequest.data
         } catch {
