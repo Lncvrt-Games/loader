@@ -9,6 +9,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { LauncherUpdate } from './types/LauncherUpdate'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { arch, platform } from '@tauri-apps/plugin-os'
+import {
+  BaseDirectory,
+  create,
+  exists,
+  readTextFile,
+  writeTextFile
+} from '@tauri-apps/plugin-fs'
 
 export default function Home () {
   const [state, setState] = useState<string>('Loading...')
@@ -47,12 +54,17 @@ export default function Home () {
         return
       }
 
-      const isLatest = await invoke('check_latest_ver', {
-        version: launcherLatestRequest.data
-      })
-      if (isLatest == '1') {
-        setState('Starting...')
-      } else {
+      const options = {
+        baseDir: BaseDirectory.AppLocalData
+      }
+
+      let latest = false
+      if (await exists('.version', options))
+        latest =
+          (await readTextFile('.version', options)) ==
+          launcherLatestRequest.data
+
+      if (!latest) {
         setState('Downloading new update...')
         try {
           const launcherUpdateRequest = await axios.get(
@@ -63,10 +75,12 @@ export default function Home () {
           setState('Failed. Check internet connection.')
           return
         }
-        if (!launcherUpdateData) return
+        if (!launcherUpdateData) {
+          setState('Failed. Check internet connection.')
+          return
+        }
         const downloadResult = await invoke('download', {
           url: launcherUpdateData.downloadUrl,
-          name: launcherLatestRequest.data,
           hash: launcherUpdateData.sha512sum
         })
         if (downloadResult == '-1') {
@@ -75,13 +89,16 @@ export default function Home () {
         } else if (downloadResult == '-2') {
           setState('File integrity check failed.')
           return
+        } else if (downloadResult == '-3') {
+          setState('Failed to unzip update.')
+          return
         }
-        setState('Starting...')
+        if (await exists('.version', options)) await create('.version', options)
+        await writeTextFile('.version', launcherLatestRequest.data, options)
       }
 
-      invoke('load', {
-        name: launcherLatestRequest.data
-      })
+      setState('Starting...')
+      invoke('load')
     })()
   }, [])
 

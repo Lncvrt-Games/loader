@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha512};
 use std::{
-    fs::{File, create_dir_all},
-    io::{BufReader, copy},
+    fs::{self, remove_dir_all},
+    io::Cursor,
     path::PathBuf,
     process::Command,
 };
@@ -9,37 +9,25 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_os::platform;
 use zip::ZipArchive;
 
-#[cfg(target_os = "linux")]
-use std::{fs, os::unix::fs::PermissionsExt};
+fn unzip_to_dir(bytes: &[u8], target: &PathBuf) -> std::io::Result<()> {
+    let reader = Cursor::new(bytes);
+    let mut zip = ZipArchive::new(reader).unwrap();
 
-async fn unzip_to_dir(zip_path: PathBuf, out_dir: PathBuf) -> String {
-    let res = tauri::async_runtime::spawn_blocking(move || {
-        let file = File::open(zip_path)?;
-        let mut archive = ZipArchive::new(BufReader::new(file))?;
+    for i in 0..zip.len() {
+        let mut file = zip.by_index(i).unwrap();
+        let outpath = target.join(file.mangled_name());
 
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let outpath = out_dir.join(file.name());
-
-            if file.is_dir() {
-                create_dir_all(&outpath)?;
-            } else {
-                if let Some(parent) = outpath.parent() {
-                    create_dir_all(parent)?;
-                }
-                let mut outfile = File::create(&outpath)?;
-                copy(&mut file, &mut outfile)?;
+        if file.name().ends_with('/') {
+            fs::create_dir_all(&outpath)?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                fs::create_dir_all(p)?;
             }
+            let mut outfile = fs::File::create(&outpath)?;
+            std::io::copy(&mut file, &mut outfile)?;
         }
-
-        Ok::<(), zip::result::ZipError>(())
-    })
-    .await;
-
-    match res {
-        Ok(Ok(())) => "1".into(),
-        _ => "-1".into(),
     }
+    Ok(())
 }
 
 fn get_sha512_hash(data: &[u8]) -> String {
@@ -50,20 +38,7 @@ fn get_sha512_hash(data: &[u8]) -> String {
 }
 
 #[tauri::command]
-async fn check_latest_ver(app: AppHandle, version: String) -> String {
-    let updates_path = app.path().app_local_data_dir().unwrap().join("updates");
-    if updates_path.exists()
-        && updates_path.is_dir()
-        && updates_path.join(&version).exists()
-        && updates_path.join(&version).is_dir()
-    {
-        return "1".to_string();
-    }
-    return "-1".to_string();
-}
-
-#[tauri::command]
-async fn download(app: AppHandle, url: String, name: String, hash: String) -> String {
+async fn download(app: AppHandle, url: String, hash: String) -> String {
     let client = reqwest::Client::new();
     let resp = match client.get(&url).send().await {
         Ok(r) => r,
@@ -79,108 +54,88 @@ async fn download(app: AppHandle, url: String, name: String, hash: String) -> St
         return "-2".to_string();
     }
 
-    let downloads_path = app.path().app_local_data_dir().unwrap().join("downloads");
-    let updates_path = app.path().app_local_data_dir().unwrap().join("updates");
-
-    let download_part_path = downloads_path.join(format!("{}.part", name));
-    let download_zip_path = downloads_path.join(format!("{}.zip", name));
-
-    let _ = tokio::fs::create_dir_all(&downloads_path).await;
-    if let Ok(true) = tokio::fs::try_exists(&updates_path.join(name.clone())).await {
-        let _ = tokio::fs::remove_dir_all(&updates_path.join(name.clone())).await;
-    }
-    if updates_path.exists() {
-        if let Ok(mut entries) = tokio::fs::read_dir(&updates_path).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let _ = tokio::fs::remove_dir_all(entry.path()).await;
-            }
-        }
-        let _ = tokio::fs::create_dir_all(updates_path.join(&name)).await;
-    }
-    if download_part_path.exists() {
-        let _ = tokio::fs::remove_file(&download_part_path).await;
+    let bin_path = app.path().app_local_data_dir().unwrap().join("bin");
+    let _ = tokio::fs::create_dir_all(&bin_path).await;
+    if let Err(_) = unzip_to_dir(&bytes, &bin_path) {
+        return "-3".to_string();
     }
 
-    if tokio::fs::write(&download_part_path, bytes).await.is_err() {
-        return "-1".to_string();
-    }
-
-    if tokio::fs::rename(&download_part_path, &download_zip_path)
-        .await
-        .is_err()
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
-        return "-1".to_string();
-    }
+        use std::{fs, os::unix::fs::PermissionsExt};
 
-    let unzip_res = unzip_to_dir(download_zip_path.clone(), updates_path.join(&name)).await;
-    tokio::fs::remove_file(download_zip_path.clone())
-        .await
-        .unwrap();
-    if unzip_res == "-1" {
-        return "-1".to_string();
-    }
+        let executable_path = if cfg!(target_os = "linux") {
+            bin_path.join("lncvrt-games-launcher")
+        } else {
+            bin_path
+                .join("Lncvrt Games Launcher.app")
+                .join("Contents")
+                .join("MacOS")
+                .join("lncvrt-games-launcher")
+        };
 
-    #[cfg(target_os = "linux")]
-    {
-        let executable_path = updates_path.join(&name).join("lncvrt-games-launcher");
         let mut perms = fs::metadata(&executable_path).unwrap().permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(executable_path, perms).unwrap();
+        fs::set_permissions(&executable_path, perms).unwrap();
     }
-    #[cfg(target_os = "macos")]
-    {
-        use std::fs;
-        use std::os::unix::fs::PermissionsExt;
 
-        let macos_app_path = updates_path
-            .join(&name)
-            .join("Lncvrt Games Launcher.app")
-            .join("Contents")
-            .join("MacOS")
-            .join("lncvrt-games-launcher");
-
-        let mut perms = fs::metadata(&macos_app_path).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&macos_app_path, perms).unwrap();
-    }
     return "1".to_string();
 }
 
 #[allow(unused_variables)]
 #[tauri::command]
-fn load(app: AppHandle, name: String) {
-    let update_path = app
-        .path()
-        .app_local_data_dir()
-        .unwrap()
-        .join("updates")
-        .join(&name);
-    if !update_path.exists() {
+fn load(app: AppHandle) {
+    let bin_path = app.path().app_local_data_dir().unwrap().join("bin");
+    if !bin_path.exists() {
         return;
     }
+
     if platform() == "macos" {
         Command::new("open")
             .arg("Lncvrt Games Launcher.app")
-            .current_dir(&update_path)
+            .current_dir(&bin_path)
             .spawn()
             .unwrap();
     } else if platform() == "linux" {
         Command::new("./lncvrt-games-launcher")
-            .current_dir(&update_path)
+            .current_dir(&bin_path)
             .spawn()
             .unwrap();
     } else if platform() == "windows" {
-        Command::new(&update_path.join("lncvrt-games-launcher.exe"))
-            .current_dir(&update_path)
+        Command::new(&bin_path.join("lncvrt-games-launcher.exe"))
+            .current_dir(&bin_path)
             .spawn()
             .unwrap();
     }
+
     app.exit(0);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            let app_local_data_dir = app.path().app_local_data_dir().unwrap();
+            let downloads_dir = app_local_data_dir.join("downloads");
+            let updates_dir = app_local_data_dir.join("updates");
+            let bin_dir = app_local_data_dir.join("bin");
+            let version_file = app_local_data_dir.join(".version");
+
+            if downloads_dir.exists() {
+                let _ = remove_dir_all(downloads_dir);
+            }
+            if updates_dir.exists() {
+                let _ = remove_dir_all(&updates_dir);
+            }
+            if bin_dir.exists() && bin_dir.is_file() {
+                let _ = remove_dir_all(&bin_dir);
+            }
+            if version_file.exists() && !bin_dir.is_file() {
+                let _ = remove_dir_all(&version_file);
+            }
+
+            Ok(())
+        })
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = app
                 .get_webview_window("main")
@@ -191,7 +146,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![check_latest_ver, download, load])
+        .invoke_handler(tauri::generate_handler![download, load])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

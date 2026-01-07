@@ -9,11 +9,13 @@
     "core:default",
     "core:window:allow-start-dragging",
     "fs:default",
-    "fs:allow-applocaldata-read",
-    "fs:allow-applocaldata-write",
-    "fs:allow-exists",
     "os:default",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    "fs:allow-write-text-file",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$APPLOCALDATA/.version" }]
+    }
   ]
 }
