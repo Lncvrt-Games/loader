@@ -60,6 +60,8 @@ async fn download(app: AppHandle, url: String, hash: String) -> String {
         return "-3".to_string();
     }
 
+    drop(bytes);
+
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
         use std::{fs, os::unix::fs::PermissionsExt};
