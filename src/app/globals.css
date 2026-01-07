@@ -5,5 +5,5 @@ body {
 }
 
 button {
-  @apply bg-[rgb(48,48,48)] hover:bg-[rgb(56,56,56)] border border-[rgb(72,72,72)] hover:border-[rgb(80,80,80)] transition-colors px-2 py-1 rounded-md cursor-pointer;
+  @apply bg-[rgb(48,48,48)] hover:bg-[rgb(72,72,72)] border border-[rgb(72,72,72)] hover:border-[rgb(96,96,96)] transition-colors px-2 py-1 rounded-md cursor-pointer;
 }
