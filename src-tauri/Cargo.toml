@@ -14,12 +14,12 @@ tauri-build = { version = "2.5.3", features = [] }
 [dependencies]
 tauri = { version = "2.9.5", features = [] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
+serde_json = "1.0.149"
 tauri-plugin-fs = "2.4.4"
-tokio = "1.48.0"
+tokio = "1.49.0"
 zip = "7.0.0"
 tauri-plugin-os = "2.3.2"
-reqwest = { version = "0.12.26", default-features = false, features = ["stream", "rustls-tls"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["stream", "rustls"] }
 tauri-plugin-opener = "2.5.2"
 tauri-plugin-dialog = "2.4.2"
 sha2 = "0.10.9"
