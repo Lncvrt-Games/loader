@@ -20,9 +20,14 @@ export default function RootLayout ({
   }
 
   useEffect(() => {
+    const handler = (e: MouseEvent) => e.preventDefault()
+    document.addEventListener('contextmenu', handler)
+    return () => document.removeEventListener('contextmenu', handler)
+  }, [])
+
+  useEffect(() => {
     document.body.addEventListener('mousedown', handleMouseDown as any)
-    return () =>
-      document.body.removeEventListener('mousedown', handleMouseDown as any)
+    return () => document.body.removeEventListener('mousedown', handleMouseDown as any)
   }, [])
 
   return (

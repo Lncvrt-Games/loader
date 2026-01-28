@@ -13,6 +13,7 @@
     "opener:default",
     "dialog:default",
     "fs:allow-write-text-file",
+    "fs:allow-create",
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "$APPLOCALDATA/.version" }]
